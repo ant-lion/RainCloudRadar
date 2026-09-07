@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 
 import pytest
 
@@ -149,8 +150,6 @@ async def test_fetcher_does_not_cache_transport_errors(aioclient_mock, hass) -> 
 
 async def test_fetch_grid_returns_only_existing_tiles(aioclient_mock, hass) -> None:
     """Missing tiles are left out of the result."""
-    import re
-
     from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
     grid = build_tile_grid(0.0, 0.0, 1, 512, 256)
@@ -162,3 +161,31 @@ async def test_fetch_grid_returns_only_existing_tiles(aioclient_mock, hass) -> N
     tiles = await fetcher.async_fetch_grid(TILE_URL, grid, 60)
 
     assert tiles == {(0, 0): b"tile"}
+
+
+def test_parent_tiles_collapse_to_the_coarser_zoom() -> None:
+    """Four neighbouring tiles share one tile a zoom level up."""
+    grid = build_tile_grid(35.681236, 139.767125, 12, 512, 512)
+
+    assert len(grid.parent_tiles(0)) == len(grid.unique_tiles)
+    assert len(grid.parent_tiles(2)) < len(grid.unique_tiles)
+    for x, y in grid.parent_tiles(2):
+        assert 0 <= x < 2**10
+        assert 0 <= y < 2**10
+
+
+async def test_fetch_grid_can_take_tiles_from_a_shallower_zoom(
+    aioclient_mock, hass
+) -> None:
+    """With zoom_out the URLs address the coarser zoom level."""
+    from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+    grid = build_tile_grid(0.0, 0.0, 3, 256, 256)
+    aioclient_mock.get(re.compile(r"https://tiles\.example/.*"), content=b"tile")
+    fetcher = TileFetcher(async_get_clientsession(hass), user_agent="test")
+
+    tiles = await fetcher.async_fetch_grid(TILE_URL, grid, 60, zoom_out=2)
+
+    requested = {str(call[1]) for call in aioclient_mock.mock_calls}
+    assert all("/1/" in url for url in requested)
+    assert set(tiles) == set(grid.parent_tiles(2))

@@ -43,12 +43,14 @@
           "update_interval": "更新間隔",
           "show_marker": "中心にマーカーを表示",
           "show_caption": "日時のキャプションを表示",
-          "color_scheme": "RainViewer のカラースキーム"
+          "color_scheme": "RainViewer のカラースキーム",
+          "enable_viewer": "インタラクティブビューアを有効にする"
         },
         "data_description": {
           "custom_base_map_url": "ベースマップで「カスタム」を選んだ場合のみ使用します。例: https://example.com/{z}/{x}/{y}.png",
           "forecast_offset": "0 は最新の実況、それ以上はその分だけ先の予測を表示します。",
-          "color_scheme": "気象庁提供元では使用されません。"
+          "color_scheme": "気象庁提供元では使用されません。",
+          "enable_viewer": "iframe カードで埋め込める、ドラッグ／ピンチ操作できるページを配信します。このページは Home Assistant のログインなしで開けます（URL 内の秘密トークンのみで保護）。"
         }
       }
     },

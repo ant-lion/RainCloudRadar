@@ -15,6 +15,7 @@ from .const import (
     CONF_BASE_MAP,
     CONF_COLOR_SCHEME,
     CONF_CUSTOM_BASE_MAP_URL,
+    CONF_ENABLE_VIEWER,
     CONF_FORECAST_OFFSET,
     CONF_HEIGHT,
     CONF_LOCATION,
@@ -23,9 +24,11 @@ from .const import (
     CONF_SHOW_MARKER,
     CONF_SOURCE,
     CONF_UPDATE_INTERVAL,
+    CONF_VIEWER_TOKEN,
     CONF_WIDTH,
     CONF_ZOOM,
     DEFAULT_COLOR_SCHEME,
+    DEFAULT_ENABLE_VIEWER,
     DEFAULT_FORECAST_OFFSET,
     DEFAULT_HEIGHT,
     DEFAULT_NAME,
@@ -37,6 +40,7 @@ from .const import (
     DEFAULT_WIDTH,
     DEFAULT_ZOOM,
     MAX_SIZE,
+    MAX_ZOOM,
     MIN_SIZE,
 )
 from .sources import RadarSource, create_source
@@ -61,6 +65,8 @@ class RadarConfig:
     show_marker: bool
     show_caption: bool
     color_scheme: int
+    viewer_enabled: bool
+    viewer_token: str
 
     @classmethod
     def from_entry(cls, entry: ConfigEntry) -> RadarConfig:
@@ -93,6 +99,8 @@ class RadarConfig:
             show_marker=bool(merged.get(CONF_SHOW_MARKER, DEFAULT_SHOW_MARKER)),
             show_caption=bool(merged.get(CONF_SHOW_CAPTION, DEFAULT_SHOW_CAPTION)),
             color_scheme=int(merged.get(CONF_COLOR_SCHEME, DEFAULT_COLOR_SCHEME)),
+            viewer_enabled=bool(merged.get(CONF_ENABLE_VIEWER, DEFAULT_ENABLE_VIEWER)),
+            viewer_token=str(merged.get(CONF_VIEWER_TOKEN) or ""),
         )
 
     def create_source(self) -> RadarSource:
@@ -117,9 +125,14 @@ class RadarConfig:
         attribution = BASE_MAPS.get(self.base_map, {}).get("attribution", "")
         return attribution if isinstance(attribution, str) else ""
 
-    def effective_zoom(self, source: RadarSource) -> int:
-        """Return the zoom both the radar source and the base map can serve."""
-        low, high = source.min_zoom, source.max_zoom
+    def clamp_zoom(self, source: RadarSource, zoom: int) -> int:
+        """Return ``zoom`` limited to what this configuration can draw.
+
+        The base map decides how far one can zoom in; the radar provider only
+        sets the lower bound, because radar tiles from a shallower zoom are
+        magnified onto a deeper map rather than limiting it.
+        """
+        low, high = source.min_zoom, MAX_ZOOM
         if self.base_map in BASE_MAPS and self.base_map not in (
             BASE_MAP_NONE,
             BASE_MAP_CUSTOM,
@@ -127,7 +140,15 @@ class RadarConfig:
             limits = BASE_MAPS[self.base_map]
             low = max(low, int(limits.get("min_zoom", low)))  # type: ignore[arg-type]
             high = min(high, int(limits.get("max_zoom", high)))  # type: ignore[arg-type]
-        return max(low, min(high, self.zoom))
+        return max(low, min(high, zoom))
+
+    def effective_zoom(self, source: RadarSource) -> int:
+        """Return the zoom the picture is drawn at."""
+        return self.clamp_zoom(source, self.zoom)
+
+    def radar_zoom(self, source: RadarSource) -> int:
+        """Return the zoom the radar tiles themselves are fetched at."""
+        return min(self.effective_zoom(source), source.max_zoom)
 
 
 def _clamp_size(value: Any) -> int:

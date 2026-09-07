@@ -23,6 +23,8 @@ CONF_UPDATE_INTERVAL: Final = "update_interval"
 CONF_SHOW_MARKER: Final = "show_marker"
 CONF_SHOW_CAPTION: Final = "show_caption"
 CONF_COLOR_SCHEME: Final = "color_scheme"
+CONF_ENABLE_VIEWER: Final = "enable_viewer"
+CONF_VIEWER_TOKEN: Final = "viewer_token"
 
 # --- Sources ------------------------------------------------------------------
 
@@ -98,12 +100,20 @@ DEFAULT_UPDATE_INTERVAL: Final = 5
 DEFAULT_SHOW_MARKER: Final = True
 DEFAULT_SHOW_CAPTION: Final = True
 DEFAULT_COLOR_SCHEME: Final = 4
+DEFAULT_ENABLE_VIEWER: Final = False
 
 MIN_ZOOM: Final = 4
-MAX_ZOOM: Final = 12
+MAX_ZOOM: Final = 16
 MIN_SIZE: Final = 256
 MAX_SIZE: Final = 1920
 MAX_FORECAST_OFFSET: Final = 60
+
+# --- Interactive viewer -------------------------------------------------------
+
+#: Path of the pan and pinch viewer page, embedded with an iframe card.
+VIEWER_URL: Final = "/api/raincloudradar/{token}"
+VIEWER_MIN_SIZE: Final = 128
+VIEWER_MAX_SIZE: Final = 1600
 
 # --- Internals ----------------------------------------------------------------
 
@@ -119,3 +129,5 @@ ATTR_FRAME_TIME: Final = "frame_time"
 ATTR_IS_FORECAST: Final = "is_forecast"
 ATTR_SOURCE: Final = "source"
 ATTR_ZOOM: Final = "zoom"
+ATTR_RADAR_ZOOM: Final = "radar_zoom"
+ATTR_VIEWER_URL: Final = "viewer_url"

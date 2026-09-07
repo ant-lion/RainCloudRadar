@@ -33,6 +33,7 @@ from .const import (
     CONF_BASE_MAP,
     CONF_COLOR_SCHEME,
     CONF_CUSTOM_BASE_MAP_URL,
+    CONF_ENABLE_VIEWER,
     CONF_FORECAST_OFFSET,
     CONF_HEIGHT,
     CONF_LOCATION,
@@ -44,6 +45,7 @@ from .const import (
     CONF_WIDTH,
     CONF_ZOOM,
     DEFAULT_COLOR_SCHEME,
+    DEFAULT_ENABLE_VIEWER,
     DEFAULT_FORECAST_OFFSET,
     DEFAULT_HEIGHT,
     DEFAULT_NAME,
@@ -307,6 +309,10 @@ class RainCloudRadarOptionsFlow(OptionsFlow):
                     CONF_COLOR_SCHEME,
                     default=str(current.get(CONF_COLOR_SCHEME, DEFAULT_COLOR_SCHEME)),
                 ): _COLOR_SCHEME_SELECTOR,
+                vol.Required(
+                    CONF_ENABLE_VIEWER,
+                    default=current.get(CONF_ENABLE_VIEWER, DEFAULT_ENABLE_VIEWER),
+                ): BooleanSelector(),
             }
         )
 

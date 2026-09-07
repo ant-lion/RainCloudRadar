@@ -17,6 +17,7 @@ from pytest_homeassistant_custom_component.common import (
 from custom_components.raincloudradar.const import (
     ATTR_FRAME_TIME,
     ATTR_IS_FORECAST,
+    ATTR_RADAR_ZOOM,
     ATTR_ZOOM,
     CONF_BASE_MAP,
     CONF_FORECAST_OFFSET,
@@ -196,14 +197,28 @@ async def test_frames_are_polled_on_the_configured_interval(
     assert calls_after > calls_before
 
 
-async def test_zoom_is_limited_by_the_provider(hass: HomeAssistant, mock_jma) -> None:
-    """Zoom 12 is not published by the JMA, so zoom 10 is used."""
-    await _setup(hass, options={CONF_ZOOM: 12})
+async def test_deep_zoom_magnifies_the_radar_layer(
+    hass: HomeAssistant, mock_jma
+) -> None:
+    """The map keeps zooming past the provider, the radar layer is blown up."""
+    await _setup(hass, options={CONF_ZOOM: 14})
 
     state = hass.states.get(CAMERA_ENTITY)
 
     assert state is not None
-    assert state.attributes[ATTR_ZOOM] == 10
+    # The base map (GSI pale) serves zoom 14, the JMA nowcast stops at 10.
+    assert state.attributes[ATTR_ZOOM] == 14
+    assert state.attributes[ATTR_RADAR_ZOOM] == 10
+
+
+async def test_zoom_is_limited_by_the_base_map(hass: HomeAssistant, mock_jma) -> None:
+    """A base map that stops at zoom 14 caps the picture there."""
+    await _setup(hass, options={CONF_ZOOM: 16, CONF_BASE_MAP: "gsi_blank"})
+
+    state = hass.states.get(CAMERA_ENTITY)
+
+    assert state is not None
+    assert state.attributes[ATTR_ZOOM] == 14
 
 
 async def test_config_resolves_base_map_defaults(hass: HomeAssistant) -> None:

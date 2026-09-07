@@ -99,9 +99,19 @@ class TileGrid:
     @property
     def unique_tiles(self) -> tuple[tuple[int, int], ...]:
         """Return the distinct ``(x, y)`` tiles, each fetched only once."""
+        return self.parent_tiles(0)
+
+    def parent_tiles(self, levels: int) -> tuple[tuple[int, int], ...]:
+        """Return the distinct tiles ``levels`` zoom levels above this grid.
+
+        A provider that stops publishing at, say, zoom 10 is still drawn on a
+        deeper map by taking the tile that contains each placement and blowing
+        it up; ``levels`` says how far up to go.
+        """
+        levels = max(0, levels)
         seen: dict[tuple[int, int], None] = {}
         for placement in self.placements:
-            seen.setdefault((placement.x, placement.y), None)
+            seen.setdefault((placement.x >> levels, placement.y >> levels), None)
         return tuple(seen)
 
 
@@ -232,13 +242,20 @@ class TileFetcher:
         return data
 
     async def async_fetch_grid(
-        self, template: str, grid: TileGrid, ttl: float
+        self, template: str, grid: TileGrid, ttl: float, zoom_out: int = 0
     ) -> dict[tuple[int, int], bytes]:
-        """Fetch every distinct tile of ``grid`` and return the ones that exist."""
-        tiles = grid.unique_tiles
+        """Fetch the tiles covering ``grid`` and return the ones that exist.
+
+        With ``zoom_out`` the tiles are taken that many zoom levels above the
+        grid, which is how a provider that stops at a shallow zoom still covers
+        a deeper map.  The result is keyed by those coarser tile coordinates.
+        """
+        zoom_out = max(0, zoom_out)
+        tiles = grid.parent_tiles(zoom_out)
+        zoom = grid.zoom - zoom_out
         results = await asyncio.gather(
             *(
-                self.async_fetch(format_tile_url(template, grid.zoom, x, y), ttl)
+                self.async_fetch(format_tile_url(template, zoom, x, y), ttl)
                 for x, y in tiles
             )
         )

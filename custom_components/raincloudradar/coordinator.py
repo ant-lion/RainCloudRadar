@@ -11,18 +11,16 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .const import (
-    BASE_TILE_TTL,
-    DOMAIN,
-    RADAR_TILE_TTL,
-    USER_AGENT,
-)
+from .const import BASE_TILE_TTL, DOMAIN, RADAR_TILE_TTL, USER_AGENT
 from .models import RadarConfig
 from .renderer import MapView, RenderRequest, async_render, format_caption
 from .sources import RadarFrame, RadarSource, SourceError
 from .tiles import TileCache, TileFetcher
 
 _LOGGER = logging.getLogger(__name__)
+
+#: How many ad hoc viewer renders to keep around.
+WINDOW_CACHE_SIZE = 12
 
 
 class RainCloudRadarCoordinator(DataUpdateCoordinator[list[RadarFrame]]):
@@ -81,6 +79,7 @@ class RadarImageProvider:
         self._lock = asyncio.Lock()
         self._cache_key: str | None = None
         self._image: bytes | None = None
+        self._windows: dict[tuple[str, str, MapView], bytes] = {}
         self._fetcher = TileFetcher(
             async_get_clientsession(hass),
             user_agent=USER_AGENT,
@@ -92,11 +91,12 @@ class RadarImageProvider:
         """Return the configuration of the entry."""
         return self._coordinator.config
 
-    def _build_request(self, frame: RadarFrame) -> RenderRequest:
-        """Describe the picture that belongs to ``frame``."""
+    def _build_request(
+        self, frame: RadarFrame, view: MapView, radar_zoom: int
+    ) -> RenderRequest:
+        """Describe the picture of ``frame`` for the given map window."""
         config = self.config
         source = self._coordinator.source
-        zoom = config.effective_zoom(source)
 
         caption = None
         if config.show_caption:
@@ -111,14 +111,9 @@ class RadarImageProvider:
             attribution = f"{attribution} / {base_credit}"
 
         return RenderRequest(
-            view=MapView(
-                latitude=config.latitude,
-                longitude=config.longitude,
-                zoom=zoom,
-                width=config.width,
-                height=config.height,
-            ),
+            view=view,
             radar_url_template=frame.url_template,
+            radar_zoom_out=view.zoom - radar_zoom,
             base_map_url_template=config.base_map_url,
             opacity=config.opacity,
             show_marker=config.show_marker,
@@ -127,6 +122,76 @@ class RadarImageProvider:
             base_tile_ttl=BASE_TILE_TTL,
             radar_tile_ttl=RADAR_TILE_TTL,
         )
+
+    def _configured_view(self) -> tuple[MapView, int]:
+        """Return the map window of the config entry and its radar zoom."""
+        config = self.config
+        source = self._coordinator.source
+        view = MapView(
+            latitude=config.latitude,
+            longitude=config.longitude,
+            zoom=config.effective_zoom(source),
+            width=config.width,
+            height=config.height,
+        )
+        return view, config.radar_zoom(source)
+
+    async def async_render_window(
+        self,
+        *,
+        latitude: float,
+        longitude: float,
+        zoom: int,
+        width: int,
+        height: int,
+    ) -> bytes | None:
+        """Render an arbitrary window of the map, for the interactive viewer.
+
+        Results are kept for a short while so panning back and forth does not
+        re-render, and rendering is serialised to bound the work one client can
+        ask for.
+        """
+        frame = self._coordinator.current_frame
+        if frame is None:
+            return None
+
+        view = MapView(
+            latitude=latitude,
+            longitude=longitude,
+            zoom=zoom,
+            width=width,
+            height=height,
+        )
+        radar_zoom = min(zoom, self._coordinator.source.max_zoom)
+        key = (frame.key, self._config_fingerprint(), view)
+
+        if (cached := self._windows.get(key)) is not None:
+            return cached
+
+        async with self._lock:
+            if (cached := self._windows.get(key)) is not None:
+                return cached
+            image = await self._async_compose(frame, view, radar_zoom)
+            if image is None:
+                return None
+            self._windows[key] = image
+            while len(self._windows) > WINDOW_CACHE_SIZE:
+                self._windows.pop(next(iter(self._windows)))
+            return image
+
+    async def _async_compose(
+        self, frame: RadarFrame, view: MapView, radar_zoom: int
+    ) -> bytes | None:
+        """Fetch the tiles and compose one picture, swallowing failures."""
+        try:
+            return await async_render(
+                self._fetcher,
+                self._build_request(frame, view, radar_zoom),
+                self._hass.async_add_executor_job,
+            )
+        except Exception:  # never let a broken render take an entity down
+            _LOGGER.exception("Failed to render the radar picture")
+            return None
 
     async def async_image(self) -> bytes | None:
         """Return the current picture, rendering it when the frame changed."""
@@ -142,14 +207,9 @@ class RadarImageProvider:
             # A concurrent caller may have rendered the picture in the meantime.
             if cache_key == self._cache_key and self._image is not None:
                 return self._image
-            try:
-                image = await async_render(
-                    self._fetcher,
-                    self._build_request(frame),
-                    self._hass.async_add_executor_job,
-                )
-            except Exception:  # never let a broken render take an entity down
-                _LOGGER.exception("Failed to render the radar picture")
+            view, radar_zoom = self._configured_view()
+            image = await self._async_compose(frame, view, radar_zoom)
+            if image is None:
                 return self._image
 
             self._image = image
@@ -179,4 +239,5 @@ class RadarImageProvider:
         """Drop the cached picture and tiles."""
         self._cache_key = None
         self._image = None
+        self._windows.clear()
         self._fetcher.cache.clear()

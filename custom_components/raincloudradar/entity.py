@@ -7,8 +7,17 @@ from typing import Any
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import ATTR_FRAME_TIME, ATTR_IS_FORECAST, ATTR_SOURCE, ATTR_ZOOM, DOMAIN
+from .const import (
+    ATTR_FRAME_TIME,
+    ATTR_IS_FORECAST,
+    ATTR_RADAR_ZOOM,
+    ATTR_SOURCE,
+    ATTR_VIEWER_URL,
+    ATTR_ZOOM,
+    DOMAIN,
+)
 from .coordinator import RadarImageProvider, RainCloudRadarCoordinator
+from .viewer import viewer_path
 
 
 class RainCloudRadarEntity(CoordinatorEntity[RainCloudRadarCoordinator]):
@@ -53,8 +62,12 @@ class RainCloudRadarEntity(CoordinatorEntity[RainCloudRadarCoordinator]):
         attributes: dict[str, Any] = {
             ATTR_SOURCE: coordinator.source.label,
             ATTR_ZOOM: coordinator.config.effective_zoom(coordinator.source),
+            ATTR_RADAR_ZOOM: coordinator.config.radar_zoom(coordinator.source),
         }
         if frame is not None:
             attributes[ATTR_FRAME_TIME] = frame.valid_time.isoformat()
             attributes[ATTR_IS_FORECAST] = frame.is_forecast
+        config = coordinator.config
+        if config.viewer_enabled and config.viewer_token:
+            attributes[ATTR_VIEWER_URL] = viewer_path(config.viewer_token)
         return attributes

@@ -43,12 +43,14 @@
           "update_interval": "Update interval",
           "show_marker": "Show a marker at the centre",
           "show_caption": "Show the timestamp caption",
-          "color_scheme": "RainViewer colour scheme"
+          "color_scheme": "RainViewer colour scheme",
+          "enable_viewer": "Enable the interactive viewer"
         },
         "data_description": {
           "custom_base_map_url": "Only used with the custom base map, for example https://example.com/{z}/{x}/{y}.png",
           "forecast_offset": "0 shows the latest observation, higher values show the nowcast that many minutes ahead.",
-          "color_scheme": "Ignored by the JMA provider."
+          "color_scheme": "Ignored by the JMA provider.",
+          "enable_viewer": "Serves a pan and pinch page that can be embedded with an iframe card. The page is reached without a Home Assistant login, guarded only by a secret token in its address."
         }
       }
     },

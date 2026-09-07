@@ -233,3 +233,63 @@ def test_caption_with_japanese_is_drawn() -> None:
     with_caption = compose(_request(caption="雨雲レーダー 09:05"), grid, tiles, {})
 
     assert without != with_caption
+
+
+def test_magnified_layer_shows_the_matching_part_of_the_coarser_tile() -> None:
+    """A tile from a shallower zoom is cropped to the placement it covers."""
+    from PIL import Image
+
+    from custom_components.raincloudradar.renderer import _paste_layer
+    from custom_components.raincloudradar.tiles import (
+        TILE_SIZE,
+        TileGrid,
+        TilePlacement,
+    )
+
+    quadrants = Image.new("RGBA", (TILE_SIZE, TILE_SIZE))
+    half = TILE_SIZE // 2
+    for box, color in (
+        ((0, 0, half, half), (255, 0, 0, 255)),
+        ((half, 0, TILE_SIZE, half), (0, 255, 0, 255)),
+        ((0, half, half, TILE_SIZE), (0, 0, 255, 255)),
+        ((half, half, TILE_SIZE, TILE_SIZE), (255, 255, 0, 255)),
+    ):
+        quadrants.paste(Image.new("RGBA", (half, half), color), box[:2])
+    buffer = io.BytesIO()
+    quadrants.save(buffer, format="PNG")
+
+    # Tile (3, 1) at zoom 2 is the bottom right quarter of tile (1, 0) at zoom 1.
+    grid = TileGrid(
+        zoom=2,
+        width=TILE_SIZE,
+        height=TILE_SIZE,
+        placements=(TilePlacement(x=3, y=1, left=0, top=0),),
+    )
+
+    layer = _paste_layer(grid, {(1, 0): buffer.getvalue()}, (TILE_SIZE, TILE_SIZE), 1)
+
+    assert layer.getpixel((4, 4)) == (255, 255, 0, 255)
+    assert layer.getpixel((TILE_SIZE - 4, TILE_SIZE - 4)) == (255, 255, 0, 255)
+
+
+async def test_async_render_fetches_the_radar_from_a_shallower_zoom(
+    aioclient_mock, hass
+) -> None:
+    """The base map keeps the view zoom while the radar drops two levels."""
+    import re
+
+    from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+    aioclient_mock.get(re.compile(r"https://base\.example/.*"), content=png_bytes(BLUE))
+    aioclient_mock.get(re.compile(r"https://radar\.example/.*"), content=png_bytes(RED))
+
+    fetcher = TileFetcher(async_get_clientsession(hass), user_agent="test")
+    await async_render(fetcher, _request(radar_zoom_out=2))
+
+    urls = [str(call[1]) for call in aioclient_mock.mock_calls]
+    assert all(
+        url.startswith("https://base.example/9/") for url in urls if "base" in url
+    )
+    assert all(
+        url.startswith("https://radar.example/7/") for url in urls if "radar" in url
+    )

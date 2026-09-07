@@ -76,6 +76,8 @@ class RenderRequest:
     view: MapView
     radar_url_template: str
     base_map_url_template: str | None = None
+    #: How many zoom levels below the view the radar tiles come from.
+    radar_zoom_out: int = 0
     opacity: float = 1.0
     show_marker: bool = True
     caption: str | None = None
@@ -180,24 +182,53 @@ def _open_tile(data: bytes) -> Any | None:
 
 
 def _paste_layer(
-    grid: TileGrid, tiles: dict[tuple[int, int], bytes], size: tuple[int, int]
+    grid: TileGrid,
+    tiles: dict[tuple[int, int], bytes],
+    size: tuple[int, int],
+    zoom_out: int = 0,
 ) -> Any:
-    """Draw every available tile of ``grid`` onto a fresh transparent layer."""
+    """Draw every available tile of ``grid`` onto a fresh transparent layer.
+
+    ``zoom_out`` says how many zoom levels above the grid ``tiles`` were taken
+    from: each placement then shows the matching quarter (or sixteenth, ...) of
+    its coarser tile, magnified.  Nearest neighbour keeps the intensity colours
+    of a radar image intact instead of inventing shades between the steps.
+    """
     from PIL import Image
+
+    zoom_out = max(0, zoom_out)
+    factor = 1 << zoom_out
+    span = max(1, TILE_SIZE // factor)
 
     layer = Image.new("RGBA", size, (0, 0, 0, 0))
     decoded: dict[tuple[int, int], Any] = {}
+    prepared: dict[tuple[int, int], Any] = {}
     for placement in grid:
-        key = (placement.x, placement.y)
-        data = tiles.get(key)
+        parent = (placement.x >> zoom_out, placement.y >> zoom_out)
+        data = tiles.get(parent)
         if data is None:
             continue
-        if key not in decoded:
+        if parent not in decoded:
             tile = _open_tile(data)
             if tile is None:
                 continue
-            decoded[key] = tile
-        layer.paste(decoded[key], (placement.left, placement.top))
+            decoded[parent] = tile
+        if parent not in decoded:
+            continue
+
+        key = (placement.x, placement.y)
+        if key not in prepared:
+            if zoom_out == 0:
+                prepared[key] = decoded[parent]
+            else:
+                left = (placement.x % factor) * span
+                top = (placement.y % factor) * span
+                prepared[key] = (
+                    decoded[parent]
+                    .crop((left, top, left + span, top + span))
+                    .resize((TILE_SIZE, TILE_SIZE), Image.NEAREST)
+                )
+        layer.paste(prepared[key], (placement.left, placement.top))
     return layer
 
 
@@ -274,7 +305,8 @@ def compose(
         canvas = Image.alpha_composite(canvas, _paste_layer(grid, base_tiles, size))
     if radar_tiles:
         radar_layer = _apply_opacity(
-            _paste_layer(grid, radar_tiles, size), request.opacity
+            _paste_layer(grid, radar_tiles, size, request.radar_zoom_out),
+            request.opacity,
         )
         canvas = Image.alpha_composite(canvas, radar_layer)
 
@@ -321,7 +353,7 @@ async def async_render(
             request.base_map_url_template, grid, request.base_tile_ttl
         )
     radar_tiles = await fetcher.async_fetch_grid(
-        request.radar_url_template, grid, request.radar_tile_ttl
+        request.radar_url_template, grid, request.radar_tile_ttl, request.radar_zoom_out
     )
 
     if executor is None:
