@@ -1,0 +1,5 @@
+# Test dependencies. The Home Assistant test harness pulls in Home Assistant
+# itself, which needs Python 3.12 or newer.
+pytest-homeassistant-custom-component==0.13.205
+Pillow>=10.0.0
+ruff==0.8.6
