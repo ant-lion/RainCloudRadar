@@ -1,0 +1,104 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Rain Cloud Radar",
+        "description": "Pick the point the radar picture should be centred on.",
+        "data": {
+          "name": "Name",
+          "source": "Radar provider",
+          "location": "Location",
+          "zoom": "Zoom level",
+          "width": "Image width",
+          "height": "Image height"
+        },
+        "data_description": {
+          "source": "The JMA nowcast covers Japan in high resolution, RainViewer covers most of the world.",
+          "location": "Defaults to the location of your Home Assistant instance.",
+          "zoom": "Higher values show a smaller area in more detail. The JMA provider supports 4 to 10."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "The radar provider could not be reached."
+    },
+    "abort": {
+      "already_configured": "This location is already set up with the same provider and zoom level."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Rain Cloud Radar options",
+        "data": {
+          "source": "Radar provider",
+          "location": "Location",
+          "zoom": "Zoom level",
+          "width": "Image width",
+          "height": "Image height",
+          "base_map": "Base map",
+          "custom_base_map_url": "Custom base map URL",
+          "opacity": "Radar opacity",
+          "forecast_offset": "Forecast offset",
+          "update_interval": "Update interval",
+          "show_marker": "Show a marker at the centre",
+          "show_caption": "Show the timestamp caption",
+          "color_scheme": "RainViewer colour scheme"
+        },
+        "data_description": {
+          "custom_base_map_url": "Only used with the custom base map, for example https://example.com/{z}/{x}/{y}.png",
+          "forecast_offset": "0 shows the latest observation, higher values show the nowcast that many minutes ahead.",
+          "color_scheme": "Ignored by the JMA provider."
+        }
+      }
+    },
+    "error": {
+      "invalid_tile_url": "The template needs to contain {z}, {x} and {y}."
+    }
+  },
+  "entity": {
+    "camera": {
+      "radar": {
+        "name": "Radar"
+      }
+    },
+    "image": {
+      "radar": {
+        "name": "Radar"
+      }
+    }
+  },
+  "selector": {
+    "source": {
+      "options": {
+        "jma": "JMA high resolution nowcast (Japan)",
+        "rainviewer": "RainViewer (worldwide)"
+      }
+    },
+    "base_map": {
+      "options": {
+        "gsi_pale": "GSI pale (Japan)",
+        "gsi_std": "GSI standard (Japan)",
+        "gsi_blank": "GSI blank (Japan)",
+        "osm": "OpenStreetMap",
+        "carto_light": "CARTO light",
+        "carto_dark": "CARTO dark",
+        "none": "No base map",
+        "custom": "Custom tile URL"
+      }
+    },
+    "color_scheme": {
+      "options": {
+        "0": "0 - Black and white",
+        "1": "1 - Original",
+        "2": "2 - Universal Blue",
+        "3": "3 - TITAN",
+        "4": "4 - The Weather Channel",
+        "5": "5 - Meteored",
+        "6": "6 - NEXRAD Level III",
+        "7": "7 - Rainbow SELEX-SI",
+        "8": "8 - Dark Sky"
+      }
+    }
+  }
+}

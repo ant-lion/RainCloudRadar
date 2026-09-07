@@ -1,0 +1,104 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "雨雲レーダー",
+        "description": "レーダー画像の中心にする地点を選択してください。",
+        "data": {
+          "name": "名前",
+          "source": "レーダー提供元",
+          "location": "地点",
+          "zoom": "ズームレベル",
+          "width": "画像の幅",
+          "height": "画像の高さ"
+        },
+        "data_description": {
+          "source": "気象庁ナウキャストは日本国内を高解像度で、RainViewer は世界の広い範囲をカバーします。",
+          "location": "既定値は Home Assistant に設定されている現在地です。",
+          "zoom": "大きいほど狭い範囲を詳細に表示します。気象庁提供元は 4〜10 に対応しています。"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "レーダー提供元に接続できませんでした。"
+    },
+    "abort": {
+      "already_configured": "同じ提供元・ズームレベルのこの地点は既に設定されています。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "雨雲レーダーの設定",
+        "data": {
+          "source": "レーダー提供元",
+          "location": "地点",
+          "zoom": "ズームレベル",
+          "width": "画像の幅",
+          "height": "画像の高さ",
+          "base_map": "ベースマップ",
+          "custom_base_map_url": "カスタムベースマップ URL",
+          "opacity": "雨雲の不透明度",
+          "forecast_offset": "予測の時間",
+          "update_interval": "更新間隔",
+          "show_marker": "中心にマーカーを表示",
+          "show_caption": "日時のキャプションを表示",
+          "color_scheme": "RainViewer のカラースキーム"
+        },
+        "data_description": {
+          "custom_base_map_url": "ベースマップで「カスタム」を選んだ場合のみ使用します。例: https://example.com/{z}/{x}/{y}.png",
+          "forecast_offset": "0 は最新の実況、それ以上はその分だけ先の予測を表示します。",
+          "color_scheme": "気象庁提供元では使用されません。"
+        }
+      }
+    },
+    "error": {
+      "invalid_tile_url": "URL には {z}、{x}、{y} を含める必要があります。"
+    }
+  },
+  "entity": {
+    "camera": {
+      "radar": {
+        "name": "レーダー"
+      }
+    },
+    "image": {
+      "radar": {
+        "name": "レーダー"
+      }
+    }
+  },
+  "selector": {
+    "source": {
+      "options": {
+        "jma": "気象庁 高解像度降水ナウキャスト（日本）",
+        "rainviewer": "RainViewer（世界）"
+      }
+    },
+    "base_map": {
+      "options": {
+        "gsi_pale": "地理院タイル 淡色（日本）",
+        "gsi_std": "地理院タイル 標準（日本）",
+        "gsi_blank": "地理院タイル 白地図（日本）",
+        "osm": "OpenStreetMap",
+        "carto_light": "CARTO ライト",
+        "carto_dark": "CARTO ダーク",
+        "none": "ベースマップなし",
+        "custom": "カスタムタイル URL"
+      }
+    },
+    "color_scheme": {
+      "options": {
+        "0": "0 - モノクロ",
+        "1": "1 - オリジナル",
+        "2": "2 - ユニバーサルブルー",
+        "3": "3 - TITAN",
+        "4": "4 - The Weather Channel",
+        "5": "5 - Meteored",
+        "6": "6 - NEXRAD Level III",
+        "7": "7 - Rainbow SELEX-SI",
+        "8": "8 - Dark Sky"
+      }
+    }
+  }
+}
